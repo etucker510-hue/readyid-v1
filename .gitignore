@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Netlify local state
+.netlify/
+
+# Env files, in case one is ever added
+.env
+.env.local
+.env.*.local
+
+# Precautionary — no build tooling today, but harmless to exclude
+node_modules/
+npm-debug.log*
+*.log

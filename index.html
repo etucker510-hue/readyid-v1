@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReadyID — Emergency profiles for your drivers</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Ready<span>ID</span></div>
+</div>
+
+<div class="wrap" style="max-width:420px;">
+  <div style="text-align:center; margin-bottom:28px;">
+    <h1 style="font-size:1.5rem;">Sign in to ReadyID</h1>
+    <p style="color:var(--text-muted); margin-top:8px;">
+      Keep your drivers' emergency info one link away.
+    </p>
+  </div>
+
+  <div class="card">
+    <div id="errorBox" class="error-msg" style="display:none;"></div>
+
+    <div class="field">
+      <label for="fullName">Full name</label>
+      <input type="text" id="fullName" placeholder="Only needed when creating an account" autocomplete="name">
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="At least 6 characters" autocomplete="current-password">
+    </div>
+
+    <button class="btn btn-primary btn-full" id="signInBtn">Sign in</button>
+    <button class="btn btn-outline btn-full" id="signUpBtn" style="margin-top:10px;">Create an account</button>
+  </div>
+
+  <p class="hint" style="text-align:center;">
+    First time here? Enter your name, email and password, then tap "Create an account."
+  </p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your drivers — ReadyID</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Ready<span>ID</span></div>
+  <button id="signOutBtn">Sign out</button>
+</div>
+
+<div class="wrap">
+
+  <!-- Driver list -->
+  <div id="listView">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h1 style="font-size:1.3rem;">Your drivers</h1>
+      <button class="btn btn-primary" id="addDriverBtn">+ Add driver</button>
+    </div>
+    <div class="card" id="driverListCard">
+      <div class="empty-state" id="emptyState">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Add / edit form -->
+  <div id="formView" style="display:none;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backToListBtn">← Back</button>
+      <h1 style="font-size:1.3rem;" id="formTitle">Add a driver</h1>
+    </div>
+
+    <div id="formError" class="error-msg" style="display:none;"></div>
+
+    <div class="card">
+      <div class="section-title">Driver</div>
+      <div class="field"><label>Full name</label><input id="f_full_name"></div>
+      <div class="field-row">
+        <div class="field"><label>Blood type</label>
+          <select id="f_blood_type">
+            <option value="">Unknown</option>
+            <option>O+</option><option>O-</option><option>A+</option><option>A-</option>
+            <option>B+</option><option>B-</option><option>AB+</option><option>AB-</option>
+          </select>
+        </div>
+        <div class="field"><label>Allergies</label><input id="f_allergies" placeholder="e.g. Penicillin, none"></div>
+      </div>
+      <div class="field"><label>Medical conditions</label><input id="f_medical_conditions" placeholder="e.g. asthma, diabetes, none"></div>
+      <div class="field"><label>Current medications</label><input id="f_medications" placeholder="e.g. none"></div>
+      <div class="field"><label>Emergency instructions</label><textarea id="f_emergency_instructions" rows="3" placeholder="Anything a responder should know first"></textarea></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Emergency contacts</div>
+      <div id="contactsContainer"></div>
+      <button class="btn btn-outline" id="addContactBtn" type="button">+ Add contact</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Vehicle</div>
+      <div class="field-row">
+        <div class="field"><label>Year</label><input id="f_vehicle_year"></div>
+        <div class="field"><label>Make</label><input id="f_vehicle_make"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Model</label><input id="f_vehicle_model"></div>
+        <div class="field"><label>Color</label><input id="f_vehicle_color"></div>
+      </div>
+      <div class="field"><label>License plate</label><input id="f_license_plate"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Insurance</div>
+      <div class="field"><label>Provider</label><input id="f_insurance_provider"></div>
+    </div>
+
+    <button class="btn btn-primary btn-full" id="saveDriverBtn">Save driver</button>
+  </div>
+
+  <!-- Access log view -->
+  <div id="logView" style="display:none;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backFromLogBtn">← Back</button>
+      <h1 style="font-size:1.3rem;">Access history</h1>
+    </div>
+    <div class="card" id="logListCard"></div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>
