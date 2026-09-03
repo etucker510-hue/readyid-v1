@@ -48,7 +48,14 @@ async function loadProfile() {
     <div class="id-card">
       <div class="eyebrow">Emergency information</div>
       <h1>${escapeHtml(d.driver_full_name)}</h1>
-      ${d.blood_type ? `<div class="blood-badge">${escapeHtml(d.blood_type)}</div>` : ''}
+      ${d.blood_type ? `
+        <div class="blood-badge" aria-label="Blood type ${escapeHtml(d.blood_type)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2C12 2 4 13 4 17C4 20.31 7.58 23 12 23C16.42 23 20 20.31 20 17C20 13 12 2 12 2Z"/>
+          </svg>
+          <span class="blood-badge-label">${escapeHtml(d.blood_type)}</span>
+        </div>
+      ` : ''}
     </div>
 
     ${d.emergency_instructions ? `

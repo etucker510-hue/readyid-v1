@@ -169,18 +169,29 @@ a { color: var(--teal); }
 .id-card h1 { color: #fff; font-size: 1.6rem; }
 .blood-badge {
   position: absolute;
-  top: 24px;
-  right: 24px;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--alert);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  width: 72px;
+  height: 90px;
+}
+.blood-badge svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: var(--alert);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+.blood-badge-label {
+  position: absolute;
+  left: 50%;
+  top: 63%;
+  transform: translate(-50%, -50%);
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
+  color: #fff;
 }
 
 .section-title {
@@ -250,3 +261,69 @@ a { color: var(--teal); }
 .contact-row .field { margin-bottom: 0; }
 .contact-row .btn { align-self: end; height: 42px; }
 @media (max-width: 640px) { .contact-row { grid-template-columns: 1fr; } }
+
+/* Driver row additions: link-status indicator + delete button
+   (markup added in the "Fix public profile URL" commit) */
+.driver-info { flex: 1; min-width: 0; margin-right: 16px; }
+.link-status {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--teal);
+  margin-top: 2px;
+}
+.btn-delete { color: var(--alert-dark); }
+.btn-delete:hover {
+  background: #FCEAEA;
+  border-color: var(--alert);
+  color: var(--alert-dark);
+}
+
+/* Dashboard intro, summary cards, primary actions */
+.dash-intro { margin-bottom: 24px; }
+.dash-title { font-size: 1.6rem; margin-bottom: 4px; }
+.dash-subtitle { color: var(--text-muted); font-size: 0.95rem; }
+
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+@media (max-width: 700px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 420px) { .dash-stats { grid-template-columns: 1fr; } }
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+.stat-value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 1.9rem;
+  color: var(--navy);
+  line-height: 1.1;
+}
+.stat-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 4px;
+}
+/* "Attention Needed" turns alert-red only once its count is above zero —
+   quiet/neutral otherwise, so the row doesn't read as an error by default. */
+.stat-card-alert { border-color: var(--alert); }
+.stat-card-alert .stat-value { color: var(--alert); }
+
+.dash-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 28px;
+}
+@media (max-width: 420px) { .dash-actions { grid-template-columns: 1fr; } }
+.dash-action { text-align: center; }

@@ -17,9 +17,41 @@
 
   <!-- Driver list -->
   <div id="listView">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+
+    <!-- Dashboard intro -->
+    <div class="dash-intro">
+      <h1 class="dash-title">ReadyID Dashboard</h1>
+      <p class="dash-subtitle">Manage your drivers and their emergency links.</p>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="dash-stats">
+      <div class="stat-card">
+        <div class="stat-value" id="statTotalDrivers">—</div>
+        <div class="stat-label">Total Drivers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statActiveDrivers">—</div>
+        <div class="stat-label">Active Drivers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statActiveLinks">—</div>
+        <div class="stat-label">Emergency Links Active</div>
+      </div>
+      <div class="stat-card" id="statAttentionCard">
+        <div class="stat-value" id="statAttention">—</div>
+        <div class="stat-label">Attention Needed</div>
+      </div>
+    </div>
+
+    <!-- Primary dashboard actions -->
+    <div class="dash-actions">
+      <button class="btn btn-primary dash-action" id="dashAddDriverBtn">+ Add Driver</button>
+      <button class="btn btn-outline dash-action" id="dashActivityBtn">Activity Log</button>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;" id="yourDriversSection">
       <h1 style="font-size:1.3rem;">Your drivers</h1>
-      <button class="btn btn-primary" id="addDriverBtn">+ Add driver</button>
     </div>
     <div class="card" id="driverListCard">
       <div class="empty-state" id="emptyState">Loading...</div>
@@ -88,6 +120,7 @@
     </div>
     <div class="card" id="logListCard"></div>
   </div>
+
 
 </div>
 

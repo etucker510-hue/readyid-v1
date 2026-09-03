@@ -1,5 +1,6 @@
 let currentUser = null;
 let editingDriverId = null; // null = adding a new driver
+let lastDriversData = []; // most recent loadDrivers() result, reused by the dashboard actions
 
 const FIELDS = [
   'full_name',
@@ -54,6 +55,53 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ── Dashboard actions ────────────────────────
+// "+ Add Driver" reuses the exact same openForm(null) as the existing
+// "+ Add driver" button in the driver-list header.
+document.getElementById('dashAddDriverBtn').addEventListener(
+  'click',
+  () => openForm(null)
+);
+
+// "Activity Log" reuses the exact same access_logs table and RLS policy
+// as the existing per-driver "Log" button — just without the driver_id
+// filter, plus the driver's name so entries are distinguishable.
+document.getElementById('dashActivityBtn').addEventListener(
+  'click',
+  () => viewAllLogs()
+);
+
+async function viewAllLogs() {
+  document.querySelector('#logView h1').textContent = 'Activity Log — All Drivers';
+
+  const card = document.getElementById('logListCard');
+  card.innerHTML = 'Loading...';
+
+  showView('log');
+
+  const { data, error } = await supabaseClient
+    .from('access_logs')
+    .select('*, drivers(full_name)')
+    .order('accessed_at', { ascending: false });
+
+  if (error) {
+    card.innerHTML = `<div class="error-msg">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  if (!data.length) {
+    card.innerHTML = `<div class="empty-state">No activity recorded yet.</div>`;
+    return;
+  }
+
+  card.innerHTML = data.map(l => `
+    <div class="log-row">
+      <span>${escapeHtml(l.drivers?.full_name || 'Unknown driver')}</span>
+      <span>${new Date(l.accessed_at).toLocaleString()}</span>
+    </div>
+  `).join('');
+}
+
 // ── List drivers ────────────────────────────
 async function loadDrivers() {
   const card = document.getElementById('driverListCard');
@@ -67,6 +115,9 @@ async function loadDrivers() {
     card.innerHTML = `<div class="error-msg">Couldn't load drivers: ${escapeHtml(error.message)}</div>`;
     return;
   }
+
+  lastDriversData = data;
+  renderStats(data);
 
   if (!data.length) {
     card.innerHTML =
@@ -159,6 +210,35 @@ async function loadDrivers() {
   }).join('');
 }
 
+// ── Dashboard summary cards ─────────────────
+// "Active Drivers" and "Attention Needed" are derived from profile_links
+// (there is no separate active/inactive status stored on drivers itself):
+// a driver counts as active/verifiable if they currently have at least one
+// active emergency link, exactly the same check already used per-row above
+// to decide between "Emergency link active" and "No emergency link yet".
+function renderStats(data) {
+  const totalDrivers = data.length;
+
+  const activeDrivers = data.filter(
+    d => (d.profile_links || []).some(l => l.is_active)
+  ).length;
+
+  const activeLinks = data.reduce(
+    (sum, d) => sum + (d.profile_links || []).filter(l => l.is_active).length,
+    0
+  );
+
+  const attentionNeeded = totalDrivers - activeDrivers;
+
+  document.getElementById('statTotalDrivers').textContent = totalDrivers;
+  document.getElementById('statActiveDrivers').textContent = activeDrivers;
+  document.getElementById('statActiveLinks').textContent = activeLinks;
+  document.getElementById('statAttention').textContent = attentionNeeded;
+
+  document.getElementById('statAttentionCard')
+    .classList.toggle('stat-card-alert', attentionNeeded > 0);
+}
+
 // ── Profile links: generate / copy / revoke ─
 window.copyLink = async (driverId, token, btn) => {
   let created = false;
@@ -225,11 +305,6 @@ window.revokeLink = async (linkId) => {
 };
 
 // ── Add / edit form ─────────────────────────
-document.getElementById('addDriverBtn').addEventListener(
-  'click',
-  () => openForm(null)
-);
-
 document.getElementById('backToListBtn').addEventListener(
   'click',
   () => showView('list')
