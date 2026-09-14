@@ -112,7 +112,7 @@ async function loadDrivers() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    card.innerHTML = `<div class="error-msg">Couldn't load drivers: ${escapeHtml(error.messaee)}</div>`;
+    card.innerHTML = `<div class="error-msg">Couldn't load drivers: ${escapeHtml(error.message)}</div>`;
     return;
   }
 
