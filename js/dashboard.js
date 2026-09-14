@@ -152,6 +152,11 @@ async function loadDrivers() {
 
         <div class="driver-actions">
 
+          <a
+            class="btn btn-alert"
+            href="accident.html?driver=${d.id}"
+          >Accident Assist</a>
+
           ${activeLink
             ? `<a
                 class="btn btn-outline"
