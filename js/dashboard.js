@@ -112,7 +112,7 @@ async function loadDrivers() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    card.innerHTML = `<div class="error-msg">Couldn't load drivers: ${escapeHtml(error.message)}</div>`;
+    card.innerHTML = `<div class="error-msg">Couldn't load drivers: ${escapeHtml(error.messaee)}</div>`;
     return;
   }
 
@@ -183,6 +183,13 @@ async function loadDrivers() {
             onclick="editDriver('${d.id}')"
           >
             Edit
+          </button>
+
+          <button
+            class="btn btn-outline"
+            onclick="setupDeviceForDriver('${d.id}', '${escapeHtml(d.full_name)}')"
+          >
+            Set up this phone
           </button>
 
           <button
@@ -307,6 +314,26 @@ window.revokeLink = async (linkId) => {
   }
 
   loadDrivers();
+};
+
+// ── Device setup: this phone always opens straight to one driver's
+// Accident Assist flow from now on. This is a deliberate, explicit
+// action only — nothing is remembered just from using the app or
+// tapping Accident Assist to try it out, so testing it on your own
+// phone never silently reconfigures your own device.
+window.setupDeviceForDriver = (id, name) => {
+  if (!confirm(
+    `Set up this phone for ${name}? From now on, logging in on this phone will go straight to Accident Assist for ${name} instead of the dashboard. Only do this if this is ${name}'s own phone.`
+  )) {
+    return;
+  }
+
+  localStorage.setItem(
+    'readyid_device_driver',
+    JSON.stringify({ id, full_name: name })
+  );
+
+  alert(`This phone is now set up for ${name}.`);
 };
 
 // ── Add / edit form ─────────────────────────
