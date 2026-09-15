@@ -98,6 +98,11 @@ a { color: var(--teal); }
   outline: 2px solid var(--teal);
   outline-offset: 1px;
 }
+.field input:disabled {
+  background: var(--paper);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 520px) { .field-row { grid-template-columns: 1fr; } }
 
@@ -167,6 +172,10 @@ a { color: var(--teal); }
   margin-bottom: 4px;
 }
 .id-card h1 { color: #fff; font-size: 1.6rem; }
+/* Reserve room on the right for the blood-type badge so a long driver
+   name wraps instead of running underneath it. */
+.id-card.has-blood-badge { padding-right: 112px; }
+@media (max-width: 420px) { .id-card.has-blood-badge { padding-right: 90px; } }
 .blood-badge {
   position: absolute;
   top: 50%;
@@ -211,12 +220,27 @@ a { color: var(--teal); }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   background: var(--teal-soft);
   border-radius: 8px;
   padding: 12px 16px;
   margin-bottom: 10px;
 }
-.contact-call a { font-weight: 600; }
+.contact-call a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--teal);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 9px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+}
+.contact-call a:hover { background: #175f59; }
 
 .copy-link-box {
   display: flex;
@@ -285,11 +309,10 @@ a { color: var(--teal); }
 
 .dash-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
-@media (max-width: 700px) { .dash-stats { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 420px) { .dash-stats { grid-template-columns: 1fr; } }
 
 .stat-card {
@@ -314,16 +337,62 @@ a { color: var(--teal); }
   letter-spacing: 0.03em;
   margin-top: 4px;
 }
-/* "Attention Needed" turns alert-red only once its count is above zero —
-   quiet/neutral otherwise, so the row doesn't read as an error by default. */
-.stat-card-alert { border-color: var(--alert); }
-.stat-card-alert .stat-value { color: var(--alert); }
-
 .dash-actions {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin-bottom: 28px;
 }
+@media (max-width: 700px) { .dash-actions { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 420px) { .dash-actions { grid-template-columns: 1fr; } }
 .dash-action { text-align: center; }
+
+/* Accident Assist flow (accident.html / js/accident.js) */
+.accident-hero {
+  background: var(--navy);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+.accident-hero h1 { color: #fff; font-size: 1.5rem; margin: 8px 0; }
+.accident-hero p { color: rgba(255,255,255,0.75); font-size: 0.95rem; margin: 0; }
+
+.btn-lg { padding: 16px 20px; font-size: 1.05rem; }
+
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.choice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  text-align: left;
+}
+.choice-btn:hover { border-color: var(--navy); }
+.choice-btn .label { display: block; font-weight: 600; font-size: 1rem; color: var(--text); }
+.choice-btn .sub { display: block; font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+.choice-btn.urgent { border-color: var(--alert); background: #FCEAEA; }
+.choice-btn.urgent .label { color: var(--alert-dark); }
+
+.callout {
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+.callout.urgent { background: #FCEAEA; color: var(--alert-dark); border: 1px solid #F3C6C6; }
+.callout.safe { background: var(--teal-soft); color: var(--teal); border: 1px solid var(--teal-soft); }

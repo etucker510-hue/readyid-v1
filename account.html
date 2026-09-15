@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your profile — ReadyID</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Ready<span>ID</span></div>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <a href="dashboard.html" class="btn-ghost">← Dashboard</a>
+    <button id="signOutBtn">Sign out</button>
+  </div>
+</div>
+
+<div class="wrap" style="max-width:520px;">
+
+  <div style="margin-bottom:24px;">
+    <h1 style="font-size:1.3rem;">Your profile</h1>
+    <p class="hint">This is your own account info — not a driver profile.</p>
+  </div>
+
+  <div id="accountError" class="error-msg" style="display:none;"></div>
+  <div id="accountSuccess" class="hint" style="display:none; color:var(--teal); font-weight:600; margin-bottom:16px;">Saved.</div>
+
+  <div class="card">
+    <div class="field"><label>Full name</label><input id="f_full_name" placeholder="Your name"></div>
+    <div class="field">
+      <label>Email</label>
+      <input id="f_email" disabled>
+      <p class="hint">Managed through sign-in — not editable here.</p>
+    </div>
+    <button class="btn btn-primary btn-full" id="saveAccountBtn">Save changes</button>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/account.js"></script>
+</body>
+</html>

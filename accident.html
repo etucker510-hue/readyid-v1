@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accident Assist — ReadyID</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Ready<span>ID</span></div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <a href="tel:911" id="call911pill" class="btn btn-alert" style="display:none;">Call 911</a>
+    <button id="signOutBtn">Sign out</button>
+  </div>
+</div>
+
+<div class="wrap" style="max-width:480px;">
+  <div id="content">Loading…</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/accident.js"></script>
+</body>
+</html>

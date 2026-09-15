@@ -8,9 +8,27 @@ function showError(message) {
   errorBox.style.display = 'block';
 }
 
+// Only set by the explicit "Set up this phone" action on the drivers
+// page — never inferred automatically, so testing Accident Assist on
+// your own phone never silently turns it into a driver's device.
+function getDeviceDriver() {
+  try {
+    return JSON.parse(localStorage.getItem('readyid_device_driver'));
+  } catch (e) {
+    return null;
+  }
+}
+
+function destinationAfterLogin() {
+  const d = getDeviceDriver();
+  return d
+    ? `accident.html?driver=${encodeURIComponent(d.id)}`
+    : 'dashboard.html';
+}
+
 async function redirectIfLoggedIn() {
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (session) window.location.href = 'dashboard.html';
+  if (session) window.location.href = destinationAfterLogin();
 }
 redirectIfLoggedIn();
 
@@ -21,7 +39,7 @@ document.getElementById('signInBtn').addEventListener('click', async () => {
     password: passwordInput.value,
   });
   if (error) return showError(error.message);
-  window.location.href = 'dashboard.html';
+  window.location.href = destinationAfterLogin();
 });
 
 document.getElementById('signUpBtn').addEventListener('click', async () => {
@@ -35,5 +53,5 @@ document.getElementById('signUpBtn').addEventListener('click', async () => {
   });
   if (error) return showError(error.message);
   // If email confirmation is off in Supabase, this signs them in immediately.
-  window.location.href = 'dashboard.html';
+  window.location.href = destinationAfterLogin();
 });

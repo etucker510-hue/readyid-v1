@@ -45,7 +45,7 @@ async function loadProfile() {
   const d = data[0];
 
   content.innerHTML = `
-    <div class="id-card">
+    <div class="id-card ${d.blood_type ? 'has-blood-badge' : ''}">
       <div class="eyebrow">Emergency information</div>
       <h1>${escapeHtml(d.driver_full_name)}</h1>
       ${d.blood_type ? `
