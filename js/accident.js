@@ -463,15 +463,28 @@ SCREENS.photos = async function () {
     return;
   }
 
-  const { data: photos, error } = await supabaseClient
+  const { data: photos } = await supabaseClient
     .from('accident_photos')
-    .select('id, category')
-    .eq('session_id', sid);
+    .select('id, category, storage_path')
+    .eq('session_id', sid)
+    .order('created_at', { ascending: false });
 
-  const counts = {};
+  const byCategory = {};
   (photos || []).forEach((p) => {
-    counts[p.category] = (counts[p.category] || 0) + 1;
+    (byCategory[p.category] = byCategory[p.category] || []).push(p);
   });
+
+  // The bucket is private, so the stored paths aren't directly loadable —
+  // each one needs a short-lived signed URL to actually display.
+  let signedUrls = {};
+  if (photos && photos.length) {
+    const { data: signedData } = await supabaseClient.storage
+      .from('accident-photos')
+      .createSignedUrls(photos.map((p) => p.storage_path), 3600);
+    (signedData || []).forEach((s) => {
+      if (s.signedUrl) signedUrls[s.path] = s.signedUrl;
+    });
+  }
 
   content.innerHTML = `
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
@@ -479,18 +492,43 @@ SCREENS.photos = async function () {
       <h1 style="font-size:1.3rem;">Photos</h1>
     </div>
     <div id="photoError" class="error-msg" style="display:none;"></div>
-    <div class="card">
-      <p class="hint" style="margin-bottom:14px;">Tap a category to add a photo or video. You can add more than one per category.</p>
-      <div class="choice-list">
-        ${PHOTO_CATEGORIES.map((c) =>
-          choiceBtn(
-            c.label,
-            counts[c.key] ? `${counts[c.key]} added` : 'None yet',
-            `takePhoto_${c.key}`
-          )
-        ).join('')}
-      </div>
-    </div>
+    <p class="hint" style="margin-bottom:14px;">Tap Add under a category for a photo or video — you can add more than one per category, anytime.</p>
+
+    ${PHOTO_CATEGORIES.map((c) => {
+      const items = byCategory[c.key] || [];
+      return `
+        <div class="card">
+          <div class="section-title">${c.label}</div>
+          ${
+            items.length
+              ? `<div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                  ${items
+                    .map((p) => {
+                      const url = signedUrls[p.storage_path];
+                      const safePath = p.storage_path.replace(/'/g, "\\'");
+                      const media =
+                        !url
+                          ? `<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:var(--paper); color:var(--text-muted); font-size:0.7rem; text-align:center; padding:4px;">Preview unavailable</div>`
+                          : c.key === 'video'
+                          ? `<video src="${url}" style="width:100%; height:100%; object-fit:cover;" muted></video>`
+                          : `<img src="${url}" style="width:100%; height:100%; object-fit:cover;" alt="">`;
+                      return `
+                        <div style="position:relative; width:84px; height:84px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#000;">
+                          ${media}
+                          <button
+                            onclick="deletePhoto('${p.id}', '${safePath}')"
+                            style="position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; background:var(--alert); color:#fff; border:none; font-size:0.8rem; line-height:1; cursor:pointer; padding:0;"
+                          >✕</button>
+                        </div>`;
+                    })
+                    .join('')}
+                </div>`
+              : `<p class="hint" style="margin-bottom:12px;">None yet.</p>`
+          }
+          <button class="btn btn-outline" data-action="takePhoto_${c.key}">+ Add</button>
+        </div>`;
+    }).join('')}
+
     <input type="file" accept="image/*,video/*" id="photoInput" style="display:none;">
   `;
 
@@ -543,6 +581,16 @@ SCREENS.photos = async function () {
 
     goTo('photos', { replace: true });
   });
+};
+
+window.deletePhoto = async (id, storagePath) => {
+  if (!confirm('Remove this photo?')) return;
+  // Best-effort on the storage object — even if it fails (already gone,
+  // network hiccup), still remove the database row so the UI doesn't
+  // get stuck showing something undeletable.
+  await supabaseClient.storage.from('accident-photos').remove([storagePath]);
+  await supabaseClient.from('accident_photos').delete().eq('id', id);
+  goTo('photos', { replace: true });
 };
 
 SCREENS.other_drivers = async function () {

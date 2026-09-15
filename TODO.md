@@ -18,10 +18,16 @@ Built from an audit of the actual codebase and live Supabase schema on 2026-09-0
 - [x] Supabase "Confirm email" setting verified OFF
 - [x] Dashboard (`dashboard.html`) is now a slim navigational home: intro, summary stats, and four shortcuts (+ Add Driver, View Your Drivers, Activity Log, Your Profile)
 - [x] Driver management split onto its own page (`drivers.html`) — dashboard no longer doubles as the driver list
-- [x] "Your Profile" page (`account.html`) — the owner can view/edit their own name; email shown read-only (managed through sign-in)
+- [x] "Your Profile" page (`account.html`) — the owner can view/edit their own name; email shown read-only (managed through sign-in). Name is only ever editable here now — the sign-up screen collects just email/password, no longer a "Full name" field.
 - [x] Consistent "← Dashboard" link in the top bar on every owner-facing page except the dashboard itself
-- [x] Driver-facing "Accident Assist" flow (`accident.html`, `js/accident.js`) — guided safe/hurt/danger triage screens, Call 911 shortcut, saves an `accident_sessions` row in the background. Folded in from work that had landed directly on GitHub `main`/Netlify outside this session; now merged into the restructured pages and given real styling (the screens were previously unstyled — the CSS classes they use were never defined). As-built, the flow stops after triage: scene guidance, photos, other-driver info, and witnesses aren't wired up yet.
+- [x] Driver-facing "Accident Assist" flow (`accident.html`, `js/accident.js`) — guided safe/hurt/danger triage screens, Call 911 shortcut, saves an `accident_sessions` row in the background. Folded in from work that had landed directly on GitHub `main`/Netlify outside this session; now merged into the restructured pages and given real styling (the screens were previously unstyled — the CSS classes they use were never defined).
+- [x] Accident Assist "What's next" checklist hub after triage — links to Photos, Other Driver Info, Witnesses, and Police Info sub-screens.
+- [x] Photos sub-screen — upload photos/videos by category to the private `accident-photos` Supabase storage bucket, view actual thumbnails (not just counts) via signed URLs, and delete individual photos.
+- [x] Other Driver Info, Witnesses, and Police Info sub-screens — add/edit/delete entries per accident session.
+- [x] Accident History — both the driver (from the Accident Assist home screen) and the owner (from a button on each driver row in `drivers.html`) can reopen any past accident session and review/add to everything that was submitted, including adding photos or details remembered later.
 - [x] "Set up this phone" (per-driver button on `drivers.html`) — one-time, explicit action that makes a phone open straight to that driver's Accident Assist flow on future sign-ins (`localStorage`, never inferred automatically). Also folded in from the same divergent work.
+- [x] Driver-row layout fixed — action buttons now stack below the driver's name/vehicle info on narrow screens instead of overlapping it.
+- [x] Forgot / reset password flow (`forgot-password.html`, `reset-password.html`) — owner requests a reset email, clicks through to set a new password. Requires the Netlify domain to be listed in Supabase's Auth redirect URLs (done).
 
 ## Removed / deferred — not in V1
 
@@ -32,8 +38,8 @@ Built from an audit of the actual codebase and live Supabase schema on 2026-09-0
 
 ## Still open before V1 is done
 
-- [ ] Deploy: reconnect Netlify (paused while deciding on credits vs. paying)
+- [x] Deploy: Netlify confirmed connected and auto-deploying from `origin/main`.
+- [x] Reconcile git history: local restructure work and the divergent Accident Assist / Set up this phone commits are merged, pushed, and confirmed live on GitHub.
 - [ ] Security: enable Supabase leaked-password protection (needs a Pro plan upgrade — currently on Free)
-- [ ] Reconcile git history: local work (droplet badge, page restructure, Your Profile page, Attention Needed removal) diverged from 6 commits already pushed to `origin/main` (Accident Assist + Set up this phone). Folded together locally; still needs a real commit/push plan since a plain push will be rejected.
-- [ ] End-to-end live smoke test once deployed to Netlify
-- [ ] Finish the rest of the Accident Assist flow: scene guidance, photos, other-driver info, witnesses (tables already exist in Supabase: `accident_photos`, `accident_other_drivers`, `accident_witnesses`, `accident_police_info`, `sent_summaries`)
+- [ ] End-to-end live smoke test: create a fresh account (confirm no name field at sign-up), set a name on Your Profile, add a driver, run the full forgot/reset-password flow with a real email, and confirm Accident Assist still works.
+- [ ] "Send a summary" (email/share) feature — deferred, no email service connected yet (`sent_summaries` table exists in Supabase but is unused)
