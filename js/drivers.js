@@ -171,7 +171,7 @@ async function loadDrivers() {
               this
             )"
           >
-            ${pairing && pairing.is_active ? "Copy her setup link" : "Get her setup link"}
+            ${pairing && pairing.is_active ? "Copy setup link" : "Get setup link"}
           </button>
 
           ${pairing && pairing.is_active
