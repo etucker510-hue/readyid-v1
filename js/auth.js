@@ -1,5 +1,4 @@
 const errorBox = document.getElementById('errorBox');
-const fullNameInput = document.getElementById('fullName');
 const emailInput = document.getElementById('email');
 const passwordInput = document.getElementById('password');
 
@@ -47,11 +46,10 @@ document.getElementById('signUpBtn').addEventListener('click', async () => {
   const { error } = await supabaseClient.auth.signUp({
     email: emailInput.value.trim(),
     password: passwordInput.value,
-    options: {
-      data: { full_name: fullNameInput.value.trim() },
-    },
   });
   if (error) return showError(error.message);
   // If email confirmation is off in Supabase, this signs them in immediately.
+  // Name is set afterward on the Your Profile page (account.html) — not
+  // collected here anymore.
   window.location.href = destinationAfterLogin();
 });
