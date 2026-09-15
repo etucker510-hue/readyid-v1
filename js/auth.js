@@ -43,6 +43,11 @@ document.getElementById('signInBtn').addEventListener('click', async () => {
 
 document.getElementById('signUpBtn').addEventListener('click', async () => {
   errorBox.style.display = 'none';
+
+  if (passwordInput.value.length < 8) {
+    return showError('Password must be at least 8 characters.');
+  }
+
   const { error } = await supabaseClient.auth.signUp({
     email: emailInput.value.trim(),
     password: passwordInput.value,

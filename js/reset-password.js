@@ -53,8 +53,8 @@ savePasswordBtn.addEventListener('click', async () => {
   const password = passwordInput.value;
   const confirmPassword = confirmPasswordInput.value;
 
-  if (password.length < 6) {
-    showError('Password must be at least 6 characters.');
+  if (password.length < 8) {
+    showError('Password must be at least 8 characters.');
     return;
   }
 

@@ -42,6 +42,6 @@ Built from an audit of the actual codebase and live Supabase schema on 2026-09-0
 
 - [x] Deploy: Netlify confirmed connected and auto-deploying from `origin/main`.
 - [x] Reconcile git history: local restructure work and the divergent Accident Assist / Set up this phone commits are merged, pushed, and confirmed live on GitHub.
-- [ ] Security: enable Supabase leaked-password protection (needs a Pro plan upgrade — currently on Free)
+- [x] Security: decided against Supabase's leaked-password check for now (needs a $25/mo Pro plan upgrade for an app at this scale). Instead, raised the minimum password length from 6 to 8 characters on sign-up and password reset, and added a hint encouraging a password unique to ReadyID. Revisit the Pro upgrade if the app grows.
 - [ ] End-to-end live smoke test: create a fresh account (confirm no name field at sign-up), set a name on Your Profile, add a driver, run the full forgot/reset-password flow with a real email, and confirm Accident Assist still works.
 - [ ] "Send a summary" (email/share) feature — deferred, no email service connected yet (`sent_summaries` table exists in Supabase but is unused)
