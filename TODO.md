@@ -25,6 +25,8 @@ Built from an audit of the actual codebase and live Supabase schema on 2026-09-0
 - [x] Photos sub-screen — upload photos/videos by category to the private `accident-photos` Supabase storage bucket, view actual thumbnails (not just counts) via signed URLs, and delete individual photos.
 - [x] Other Driver Info, Witnesses, and Police Info sub-screens — add/edit/delete entries per accident session.
 - [x] Accident History — both the driver (from the Accident Assist home screen) and the owner (from a button on each driver row in `drivers.html`) can reopen any past accident session and review/add to everything that was submitted, including adding photos or details remembered later.
+- [x] Accident Summary — a read-only, printable screen (reached from "What's next") that pulls together the safety checklist, photos, other driver info, witnesses, and police info in one place, with a Print / Save as PDF button.
+- [x] Visual refresh — softer, warmer color palette and rounded corners, gentler shadows, and hover states across every page.
 - [x] "Set up this phone" (per-driver button on `drivers.html`) — one-time, explicit action that makes a phone open straight to that driver's Accident Assist flow on future sign-ins (`localStorage`, never inferred automatically). Also folded in from the same divergent work.
 - [x] Driver-row layout fixed — action buttons now stack below the driver's name/vehicle info on narrow screens instead of overlapping it.
 - [x] Forgot / reset password flow (`forgot-password.html`, `reset-password.html`) — owner requests a reset email, clicks through to set a new password. Requires the Netlify domain to be listed in Supabase's Auth redirect URLs (done).

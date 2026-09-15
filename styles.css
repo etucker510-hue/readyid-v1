@@ -449,3 +449,19 @@ a { color: var(--teal); }
 }
 .callout.urgent { background: #FCEAEA; color: var(--alert-dark); border: 1px solid #F3C6C6; }
 .callout.safe { background: var(--teal-soft); color: var(--teal); border: 1px solid var(--teal-soft); }
+
+/* Accident Summary — printable view (js/accident.js SCREENS.summary).
+   .no-print hides anything that only makes sense on-screen (back/print
+   buttons, the top bar) when the browser's print/save-as-PDF is used. */
+@media print {
+  .no-print, .topbar { display: none !important; }
+  body { background: #fff; }
+  .wrap { max-width: 100%; padding: 0; }
+  .card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  a { color: var(--text); }
+}

@@ -419,6 +419,14 @@ SCREENS.next_steps = async function () {
       </div>
     </div>
 
+    <div class="card">
+      <div class="section-title">Review everything</div>
+      <p class="hint" style="margin-bottom:14px;">See everything that's been added in one place, and print it or save it as a PDF to hand to an adjuster or the police.</p>
+      <div class="choice-list">
+        ${choiceBtn('Accident Summary', 'Photos, other driver info, witnesses, police info — all together', 'goToSummary')}
+      </div>
+    </div>
+
     <a class="btn btn-outline btn-full" href="dashboard.html">Back to dashboard</a>
   `;
 
@@ -436,6 +444,7 @@ window.goToPhotos = () => goTo('photos');
 window.goToOtherDrivers = () => goTo('other_drivers');
 window.goToWitnesses = () => goTo('witnesses');
 window.goToPoliceInfo = () => goTo('police_info');
+window.goToSummary = () => goTo('summary');
 
 async function updateSessionFlag(field, value) {
   if (!accidentSessionId) return;
@@ -917,6 +926,222 @@ SCREENS.police_info = async function () {
     }
 
     goTo('next_steps', { replace: true });
+  });
+};
+
+// One combined, printable view of everything added so far — safety notes,
+// photos, other driver info, witnesses, and police info. Read-only; edits
+// still happen on each individual screen.
+SCREENS.summary = async function () {
+  content.innerHTML = `<div class="card"><p class="hint">Loading...</p></div>`;
+
+  const sid = await ensureAccidentSession();
+  if (!sid) {
+    showSessionUnavailable();
+    return;
+  }
+
+  const [
+    { data: session },
+    { data: photos },
+    { data: otherDrivers },
+    { data: witnesses },
+    { data: policeInfo },
+  ] = await Promise.all([
+    supabaseClient
+      .from('accident_sessions')
+      .select('status, started_at, medical_checked, knows_how_to_get_report, insurer_contact_planned')
+      .eq('id', sid)
+      .single(),
+    supabaseClient
+      .from('accident_photos')
+      .select('id, category, storage_path')
+      .eq('session_id', sid)
+      .order('created_at', { ascending: true }),
+    supabaseClient
+      .from('accident_other_drivers')
+      .select('*')
+      .eq('session_id', sid)
+      .order('created_at', { ascending: true }),
+    supabaseClient
+      .from('accident_witnesses')
+      .select('*')
+      .eq('session_id', sid)
+      .order('created_at', { ascending: true }),
+    supabaseClient
+      .from('accident_police_info')
+      .select('*')
+      .eq('session_id', sid)
+      .maybeSingle(),
+  ]);
+
+  const s = session || {};
+
+  // Same private-bucket signed-URL step as the Photos screen.
+  let signedUrls = {};
+  if (photos && photos.length) {
+    const { data: signedData } = await supabaseClient.storage
+      .from('accident-photos')
+      .createSignedUrls(photos.map((p) => p.storage_path), 3600);
+    (signedData || []).forEach((sd) => {
+      if (sd.signedUrl) signedUrls[sd.path] = sd.signedUrl;
+    });
+  }
+
+  const byCategory = {};
+  (photos || []).forEach((p) => {
+    (byCategory[p.category] = byCategory[p.category] || []).push(p);
+  });
+
+  const whenStarted = s.started_at
+    ? new Date(s.started_at).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })
+    : 'Unknown date';
+
+  const checklistRow = (label, checked) => `
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <span style="color:${checked ? 'var(--teal)' : 'var(--text-muted)'}; font-weight:700;">${checked ? '✓' : '—'}</span>
+      <span>${label}</span>
+    </div>`;
+
+  const categoriesWithPhotos = PHOTO_CATEGORIES.filter((c) => (byCategory[c.key] || []).length);
+  const photosSection = categoriesWithPhotos.length
+    ? categoriesWithPhotos
+        .map(
+          (c) => `
+        <div style="margin-bottom:14px;">
+          <div style="font-weight:600; font-size:0.88rem; margin-bottom:8px;">${c.label}</div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            ${byCategory[c.key]
+              .map((p) => {
+                const url = signedUrls[p.storage_path];
+                if (!url) return '';
+                const isVideo = c.key === 'video';
+                return `
+                  <div
+                    data-photo-id="${p.id}"
+                    style="width:100px; height:100px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#000; cursor:pointer;"
+                  >
+                    ${
+                      isVideo
+                        ? `<video src="${url}" style="width:100%; height:100%; object-fit:cover;" muted></video>`
+                        : `<img src="${url}" style="width:100%; height:100%; object-fit:cover;" alt="">`
+                    }
+                  </div>`;
+              })
+              .join('')}
+          </div>
+        </div>`
+        )
+        .join('')
+    : `<p class="hint">No photos added.</p>`;
+
+  const infoField = (label, value) =>
+    value
+      ? `<div class="info-item"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value)}</div></div>`
+      : '';
+
+  const otherDriversSection = (otherDrivers || []).length
+    ? otherDrivers
+        .map(
+          (r) => `
+        <div style="padding:12px 0; border-bottom:1px solid var(--line);">
+          <div class="driver-name" style="margin-bottom:8px;">${escapeHtml(r.name || 'Unnamed driver')}</div>
+          <div class="info-grid">
+            ${infoField('Phone', r.phone)}
+            ${infoField('Address', r.address)}
+            ${infoField('License number', r.license_number)}
+            ${infoField('License state', r.license_state)}
+            ${infoField('Insurer', r.insurer)}
+            ${infoField('Policy number', r.policy_number)}
+            ${infoField('Plate number', r.plate_number)}
+            ${infoField('Plate state', r.plate_state)}
+            ${infoField('VIN', r.vin)}
+            ${infoField('Vehicle', r.vehicle_description)}
+          </div>
+        </div>`
+        )
+        .join('')
+    : `<p class="hint">None added.</p>`;
+
+  const witnessesSection = (witnesses || []).length
+    ? witnesses
+        .map(
+          (r) => `
+        <div style="padding:12px 0; border-bottom:1px solid var(--line);">
+          <div class="driver-name" style="margin-bottom:6px;">${escapeHtml(r.name || 'Unnamed witness')}</div>
+          ${r.phone ? `<div class="hint" style="margin-bottom:4px;">${escapeHtml(r.phone)}</div>` : ''}
+          ${r.what_they_saw ? `<div>${escapeHtml(r.what_they_saw)}</div>` : ''}
+        </div>`
+        )
+        .join('')
+    : `<p class="hint">None added.</p>`;
+
+  const policeFilled =
+    policeInfo && (policeInfo.officer_name_badge || policeInfo.agency || policeInfo.case_number);
+  const policeSection = policeFilled
+    ? `<div class="info-grid">
+        ${infoField('Officer name / badge', policeInfo.officer_name_badge)}
+        ${infoField('Agency', policeInfo.agency)}
+        ${infoField('Case / report number', policeInfo.case_number)}
+      </div>`
+    : `<p class="hint">Not added.</p>`;
+
+  content.innerHTML = `
+    <div class="no-print" style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backBtn">← Back</button>
+      <h1 style="font-size:1.3rem;">Accident Summary</h1>
+    </div>
+
+    <div class="card">
+      <div class="section-title">${escapeHtml(driverName)}</div>
+      <h2 style="margin-bottom:4px;">Accident on ${whenStarted}</h2>
+      <p class="hint">Status: ${s.status === 'completed' ? 'Triage completed' : 'Triage in progress'}</p>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Safety checklist</div>
+      ${checklistRow("Everyone's been medically checked out", s.medical_checked)}
+      ${checklistRow('Knows how to get a copy of the police report', s.knows_how_to_get_report)}
+      ${checklistRow('Has a plan to contact insurer', s.insurer_contact_planned)}
+    </div>
+
+    <div class="card">
+      <div class="section-title">Photos</div>
+      ${photosSection}
+    </div>
+
+    <div class="card">
+      <div class="section-title">Other driver's info</div>
+      ${otherDriversSection}
+    </div>
+
+    <div class="card">
+      <div class="section-title">Witnesses</div>
+      ${witnessesSection}
+    </div>
+
+    <div class="card">
+      <div class="section-title">Police info</div>
+      ${policeSection}
+    </div>
+
+    <button class="btn btn-primary btn-full no-print" id="printBtn">Print / Save as PDF</button>
+  `;
+
+  document.getElementById('backBtn').addEventListener('click', () =>
+    goTo('next_steps', { replace: true })
+  );
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  // Tapping a photo opens it full-size — same lightbox as the Photos screen.
+  content.querySelectorAll('[data-photo-id]').forEach((el) => {
+    const photo = (photos || []).find((p) => p.id === el.dataset.photoId);
+    if (!photo) return;
+    const url = signedUrls[photo.storage_path];
+    if (!url) return;
+    el.addEventListener('click', () => {
+      openPhotoLightbox(url, photo.category === 'video', photo.storage_path.split('/').pop());
+    });
   });
 };
 
