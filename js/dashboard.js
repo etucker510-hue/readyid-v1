@@ -23,6 +23,23 @@ async function init() {
     return;
   }
 
+  // This dashboard is owner-only. A driver's paired device (an anonymous
+  // session set up via a setup link — see driver-setup.js) has no
+  // business here; send it straight to its own Accident Assist instead
+  // of the owner's driver management screens.
+  if (session.user.is_anonymous) {
+    const { data: driver } = await supabaseClient
+      .from('drivers')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+
+    window.location.href = driver
+      ? `accident.html?driver=${encodeURIComponent(driver.id)}`
+      : 'index.html';
+    return;
+  }
+
   currentUser = session.user;
   loadStats();
 }

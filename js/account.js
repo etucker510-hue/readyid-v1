@@ -11,6 +11,23 @@ async function init() {
     return;
   }
 
+  // This is the owner's own account page. A driver's paired device (an
+  // anonymous session — see driver-setup.js) has no owner_profiles row
+  // at all, so send it straight to its own Accident Assist instead of
+  // showing it a broken "couldn't load your profile" error.
+  if (session.user.is_anonymous) {
+    const { data: driver } = await supabaseClient
+      .from('drivers')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+
+    window.location.href = driver
+      ? `accident.html?driver=${encodeURIComponent(driver.id)}`
+      : 'index.html';
+    return;
+  }
+
   currentUser = session.user;
 
   const { data: profile, error } = await supabaseClient
