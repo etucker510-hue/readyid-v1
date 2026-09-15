@@ -143,11 +143,26 @@ a { color: var(--teal); }
   justify-content: space-between;
   padding: 16px 0;
   border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+  row-gap: 12px;
 }
 .driver-row:last-child { border-bottom: none; }
 .driver-name { font-weight: 600; font-size: 1.02rem; }
 .driver-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .driver-actions button, .driver-actions a { font-size: 0.82rem; padding: 7px 12px; }
+
+/* Once a driver has enough buttons (Accident Assist, Set up this phone,
+   etc. added to this row) to not fit beside the info column, stack them
+   underneath instead of letting the two columns fight for width and
+   overlap. */
+@media (max-width: 640px) {
+  .driver-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .driver-info { margin-right: 0; }
+  .driver-actions { width: 100%; }
+}
 
 .empty-state {
   text-align: center;
