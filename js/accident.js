@@ -4,6 +4,16 @@ let driverId = null;
 let driverName = '';
 let accidentSessionId = null;
 
+// Set once the driver record loads. For an owner session this is just
+// their own id (same as currentUser.id, unchanged from before). For a
+// paired driver device (an anonymous session — see driver-setup.js) this
+// is the REAL owner's id, resolved server-side via RLS on `drivers`, and
+// is what accident_sessions rows and uploaded photo paths must use —
+// never currentUser.id, which on a driver's device is just that device's
+// own anonymous identity and has no meaning to the owner-scoped data.
+let effectiveOwnerId = null;
+let isDriverDevice = false;
+
 const content = document.getElementById('content');
 const call911Pill = document.getElementById('call911pill');
 
@@ -20,6 +30,16 @@ async function init() {
     return;
   }
   currentUser = session.user;
+  isDriverDevice = session.user.is_anonymous === true;
+
+  // A paired driver device has nowhere meaningful to sign out TO (there's
+  // no owner email/password for them to sign back in with — see
+  // driver-setup.js), so the sign-out button only makes sense for owners.
+  if (isDriverDevice) {
+    document.getElementById('signOutBtn').style.display = 'none';
+    // Fire-and-forget "last used" heartbeat for the owner's Drivers page.
+    supabaseClient.rpc('touch_driver_device_pairing').then(() => {});
+  }
 
   const params = new URLSearchParams(window.location.search);
   driverId = params.get('driver');
@@ -29,14 +49,19 @@ async function init() {
     content.innerHTML = `
       <div class="card">
         <p>No driver was selected.</p>
-        <a class="btn btn-outline" href="dashboard.html">← Back to dashboard</a>
+        ${isDriverDevice ? '' : '<a class="btn btn-outline" href="dashboard.html">← Back to dashboard</a>'}
       </div>`;
     return;
   }
 
+  // owner_id is included so accident_sessions/photo uploads created from
+  // this device can be attributed to the real account owner — see
+  // effectiveOwnerId above. RLS only ever returns a row here if this
+  // session is either the driver's real owner, or a device currently
+  // paired to this exact driver (drivers_paired_device_select policy).
   const { data: driver, error } = await supabaseClient
     .from('drivers')
-    .select('id, full_name')
+    .select('id, full_name, owner_id')
     .eq('id', driverId)
     .single();
 
@@ -44,12 +69,13 @@ async function init() {
     content.innerHTML = `
       <div class="card">
         <p>Couldn't load that driver.</p>
-        <a class="btn btn-outline" href="dashboard.html">← Back to dashboard</a>
+        ${isDriverDevice ? '' : '<a class="btn btn-outline" href="dashboard.html">← Back to dashboard</a>'}
       </div>`;
     return;
   }
 
   driverName = driver.full_name;
+  effectiveOwnerId = driver.owner_id;
 
   // Reached via the "Accident History" link on drivers.html
   // (accident.html?driver=X&view=history) — jump straight to the list
@@ -116,7 +142,7 @@ function renderHome() {
     <button class="btn btn-alert btn-full btn-lg" id="startBtn">I've Been in an Accident</button>
     <p class="hint" style="text-align:center; margin-top:14px;">If you're in danger right now, call 911 before anything else.</p>
     <p style="text-align:center; margin-top:20px;"><a href="#" id="historyLink">View past accidents for ${escapeHtml(driverName)}</a></p>
-    <p style="text-align:center; margin-top:8px;"><a href="dashboard.html">← Back to dashboard</a></p>
+    ${isDriverDevice ? '' : '<p style="text-align:center; margin-top:8px;"><a href="dashboard.html">← Back to dashboard</a></p>'}
   `;
   document.getElementById('startBtn').addEventListener('click', startAccident);
   document.getElementById('historyLink').addEventListener('click', (e) => {
@@ -200,7 +226,7 @@ async function createAccidentSessionInBackground(attempt = 1) {
   try {
     const { data, error } = await supabaseClient
       .from('accident_sessions')
-      .insert({ driver_id: driverId, owner_id: currentUser.id })
+      .insert({ driver_id: driverId, owner_id: effectiveOwnerId })
       .select('id')
       .single();
     if (error) throw error;
@@ -427,7 +453,7 @@ SCREENS.next_steps = async function () {
       </div>
     </div>
 
-    <a class="btn btn-outline btn-full" href="dashboard.html">Back to dashboard</a>
+    ${isDriverDevice ? '' : '<a class="btn btn-outline btn-full" href="dashboard.html">Back to dashboard</a>'}
   `;
 
   document.getElementById('chkMedical').addEventListener('change', (e) =>
@@ -581,10 +607,13 @@ SCREENS.photos = async function () {
     const errBox = document.getElementById('photoError');
     errBox.style.display = 'none';
 
-    // First path segment must be the owner's own auth uid — required by
-    // the storage RLS policies on the accident-photos bucket.
+    // First path segment must be the driver's real owner's uid — required
+    // by the storage RLS policies on the accident-photos bucket (for a
+    // paired driver device this is effectiveOwnerId, not this device's
+    // own anonymous currentUser.id — see the comment near the top of
+    // this file).
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const path = `${currentUser.id}/${sid}/${pendingCategory}/${Date.now()}.${ext}`;
+    const path = `${effectiveOwnerId}/${sid}/${pendingCategory}/${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabaseClient.storage
       .from('accident-photos')

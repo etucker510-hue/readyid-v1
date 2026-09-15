@@ -72,7 +72,11 @@ async function loadDrivers() {
 
   const { data, error } = await supabaseClient
     .from('drivers')
-    .select('*, profile_links(id, token, is_active)')
+    .select(`
+      *,
+      profile_links(id, token, is_active),
+      driver_device_pairings(id, setup_token, is_active, paired_at, last_seen_at, last_repaired_at, repair_count)
+    `)
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -88,6 +92,11 @@ async function loadDrivers() {
 
   card.innerHTML = data.map(d => {
     const activeLink = (d.profile_links || []).find(l => l.is_active);
+
+    // PostgREST returns a to-one embed (driver_id is unique) as either a
+    // single object or a one-item array depending on version — handle both.
+    const rawPairing = d.driver_device_pairings;
+    const pairing = Array.isArray(rawPairing) ? rawPairing[0] : rawPairing;
 
     const vehicle = [
       d.vehicle_year,
@@ -109,6 +118,8 @@ async function loadDrivers() {
             ? `<div class="link-status">● Emergency link active</div>`
             : `<div class="hint">No emergency link yet</div>`
           }
+
+          ${pairingStatusLine(pairing)}
         </div>
 
         <div class="driver-actions">
@@ -153,10 +164,25 @@ async function loadDrivers() {
 
           <button
             class="btn btn-outline"
-            onclick="setupDeviceForDriver('${d.id}', '${escapeHtml(d.full_name)}')"
+            onclick="getDriverSetupLink(
+              '${d.id}',
+              '${escapeHtml(d.full_name)}',
+              ${pairing ? `{ id: '${pairing.id}', setup_token: '${pairing.setup_token}', is_active: ${pairing.is_active} }` : 'null'},
+              this
+            )"
           >
-            Set up this phone
+            ${pairing && pairing.is_active ? "Copy her setup link" : "Get her setup link"}
           </button>
+
+          ${pairing && pairing.is_active
+            ? `<button
+                class="btn btn-outline"
+                onclick="revokeDriverAccess('${pairing.id}', '${escapeHtml(d.full_name)}')"
+              >
+                Revoke phone access
+              </button>`
+            : ''
+          }
 
           <button
             class="btn btn-outline"
@@ -253,24 +279,133 @@ window.revokeLink = async (linkId) => {
   loadDrivers();
 };
 
-// ── Device setup: this phone always opens straight to one driver's
-// Accident Assist flow from now on. This is a deliberate, explicit
-// action only — nothing is remembered just from using the app or
-// tapping Accident Assist to try it out, so testing it on your own
-// phone never silently reconfigures your own device.
-window.setupDeviceForDriver = (id, name) => {
+// ── Driver device access: a real, scoped-down sign-in for a driver's own
+// phone, separate from the owner's account. The setup link is persistent
+// and reusable on purpose — opening it again (new phone, browser
+// cleared) automatically re-pairs, so it never needs regenerating.
+// Revoking is the only thing that invalidates it.
+function pairingStatusLine(p) {
+  if (!p) {
+    return `<div class="hint">Phone not set up yet</div>`;
+  }
+  if (!p.is_active) {
+    return `<div class="hint">Phone access revoked</div>`;
+  }
+  if (!p.paired_at) {
+    return `<div class="hint">Setup link ready — not opened on a phone yet</div>`;
+  }
+
+  const daysSince = p.last_seen_at
+    ? Math.floor((Date.now() - new Date(p.last_seen_at).getTime()) / 86400000)
+    : null;
+
+  let line;
+  if (daysSince === null) {
+    line = `<div class="link-status">● Phone linked</div>`;
+  } else if (daysSince >= 60) {
+    line = `<div class="hint" style="color:var(--amber);">⚠ Phone linked, but hasn't connected in ${daysSince} days — you may want to check in or resend the link</div>`;
+  } else if (daysSince <= 0) {
+    line = `<div class="link-status">● Phone linked — used today</div>`;
+  } else {
+    line = `<div class="link-status">● Phone linked — last used ${daysSince} day${daysSince === 1 ? '' : 's'} ago</div>`;
+  }
+
+  // A "repair" only happens when the same link is opened from a
+  // genuinely different device than last time (new phone, cleared
+  // browser) — see redeem_driver_setup_link(). Surface it for a little
+  // while so it doesn't go unnoticed, without being a standing alarm.
+  const recentlyRepaired =
+    p.repair_count > 0 &&
+    p.last_repaired_at &&
+    Date.now() - new Date(p.last_repaired_at).getTime() < 7 * 86400000;
+
+  return recentlyRepaired
+    ? `${line}<div class="hint">🔄 Reconnected recently from a different phone or browser</div>`
+    : line;
+}
+
+window.getDriverSetupLink = async (driverId, name, pairing, btn) => {
+  let token;
+
+  if (pairing && pairing.is_active) {
+    token = pairing.setup_token;
+  } else if (pairing && !pairing.is_active) {
+    // Was revoked before — rotate to a fresh token rather than reviving
+    // the old (possibly leaked) one, and reset its pairing history.
+    const { data, error } = await supabaseClient
+      .from('driver_device_pairings')
+      .update({
+        setup_token: crypto.randomUUID(),
+        is_active: true,
+        device_user_id: null,
+        paired_at: null,
+        last_seen_at: null,
+        last_repaired_at: null,
+        repair_count: 0,
+        revoked_at: null,
+      })
+      .eq('id', pairing.id)
+      .select('setup_token')
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    token = data.setup_token;
+  } else {
+    const { data, error } = await supabaseClient
+      .from('driver_device_pairings')
+      .insert({ driver_id: driverId })
+      .select('setup_token')
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    token = data.setup_token;
+  }
+
+  const link =
+    `${window.location.origin}${window.location.pathname.replace(/\/[^/]*$/, '/')}driver-setup.html?token=${encodeURIComponent(token)}`;
+
+  try {
+    await navigator.clipboard.writeText(link);
+
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+
+    setTimeout(() => {
+      loadDrivers();
+    }, 1200);
+  } catch (error) {
+    alert(`Could not copy the link automatically. Send ${name} this link:\n\n${link}`);
+    loadDrivers();
+  }
+};
+
+window.revokeDriverAccess = async (pairingId, name) => {
   if (!confirm(
-    `Set up this phone for ${name}? From now on, logging in on this phone will go straight to Accident Assist for ${name} instead of the dashboard. Only do this if this is ${name}'s own phone.`
+    `Revoke ${name}'s phone access? Their current setup link will stop working right away — including on a phone that's already using it. You can create a new link anytime.`
   )) {
     return;
   }
 
-  localStorage.setItem(
-    'readyid_device_driver',
-    JSON.stringify({ id, full_name: name })
-  );
+  const { error } = await supabaseClient
+    .from('driver_device_pairings')
+    .update({
+      is_active: false,
+      revoked_at: new Date().toISOString(),
+    })
+    .eq('id', pairingId);
 
-  alert(`This phone is now set up for ${name}.`);
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  loadDrivers();
 };
 
 // ── Add / edit form ─────────────────────────

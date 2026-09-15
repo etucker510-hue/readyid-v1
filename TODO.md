@@ -27,7 +27,7 @@ Built from an audit of the actual codebase and live Supabase schema on 2026-09-0
 - [x] Accident History — both the driver (from the Accident Assist home screen) and the owner (from a button on each driver row in `drivers.html`) can reopen any past accident session and review/add to everything that was submitted, including adding photos or details remembered later.
 - [x] Accident Summary — a read-only, printable screen (reached from "What's next") that pulls together the safety checklist, photos, other driver info, witnesses, and police info in one place, with a Print / Save as PDF button.
 - [x] Visual refresh — softer, warmer color palette and rounded corners, gentler shadows, and hover states across every page.
-- [x] "Set up this phone" (per-driver button on `drivers.html`) — one-time, explicit action that makes a phone open straight to that driver's Accident Assist flow on future sign-ins (`localStorage`, never inferred automatically). Also folded in from the same divergent work.
+- [x] Scoped-down driver phone access (`driver-setup.html`, `js/driver-setup.js`) — replaces the old "Set up this phone" convenience redirect, which actually gave a driver's phone the owner's *entire* account session. A driver's phone now gets its own real, restricted sign-in (Supabase Anonymous Sign-In), and can only ever reach its own Accident Assist flow — never the dashboard, the drivers list, or any other driver's data. From `drivers.html`, "Get her setup link" copies a persistent, reusable link (opening it again — new phone, browser cleared — automatically re-pairs, never needs regenerating); "Revoke phone access" cuts it off immediately. Each driver row also shows a plain-language status ("Phone linked — last used 2 days ago", a warning after 60+ days of no contact, and a note when it reconnects from a different phone or browser) — the "life happens" fail-safe/reminder discussed together, without needing email or push notifications.
 - [x] Driver-row layout fixed — action buttons now stack below the driver's name/vehicle info on narrow screens instead of overlapping it.
 - [x] Forgot / reset password flow (`forgot-password.html`, `reset-password.html`) — owner requests a reset email, clicks through to set a new password. Requires the Netlify domain to be listed in Supabase's Auth redirect URLs (done).
 
@@ -40,6 +40,8 @@ Built from an audit of the actual codebase and live Supabase schema on 2026-09-0
 
 ## Still open before V1 is done
 
+- [ ] **Manual step needed**: enable Anonymous Sign-Ins in Supabase (Authentication → Sign In / Providers → Anonymous) — required for the new driver phone setup links to work. Nothing else needs to change there.
+- [ ] **Manual step needed**: raise Supabase's own server-side "Minimum password length" to 8 (Authentication → Providers → Email) to match the 8-character minimum already enforced in the app.
 - [x] Deploy: Netlify confirmed connected and auto-deploying from `origin/main`.
 - [x] Reconcile git history: local restructure work and the divergent Accident Assist / Set up this phone commits are merged, pushed, and confirmed live on GitHub.
 - [x] Security: decided against Supabase's leaked-password check for now (needs a $25/mo Pro plan upgrade for an app at this scale). Instead, raised the minimum password length from 6 to 8 characters on sign-up and password reset, and added a hint encouraging a password unique to ReadyID. Revisit the Pro upgrade if the app grows.

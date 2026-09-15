@@ -7,27 +7,40 @@ function showError(message) {
   errorBox.style.display = 'block';
 }
 
-// Only set by the explicit "Set up this phone" action on the drivers
-// page — never inferred automatically, so testing Accident Assist on
-// your own phone never silently turns it into a driver's device.
-function getDeviceDriver() {
-  try {
-    return JSON.parse(localStorage.getItem('readyid_device_driver'));
-  } catch (e) {
-    return null;
-  }
-}
-
+// Owner sign-in always goes to the dashboard. Driver devices never sign
+// in here at all — they're set up separately via a per-driver setup link
+// (driver-setup.html), which uses Supabase Anonymous Sign-In and never
+// touches this owner-only email/password form.
 function destinationAfterLogin() {
-  const d = getDeviceDriver();
-  return d
-    ? `accident.html?driver=${encodeURIComponent(d.id)}`
-    : 'dashboard.html';
+  return 'dashboard.html';
 }
 
 async function redirectIfLoggedIn() {
   const { data: { session } } = await supabaseClient.auth.getSession();
-  if (session) window.location.href = destinationAfterLogin();
+  if (!session) return;
+
+  // This page is the owner's email/password sign-in — a driver device
+  // (anonymous session) has no business here. If one ends up here anyway
+  // (a stray bookmark, a revoked link), send it to its own Accident
+  // Assist instead of the owner dashboard it can't see anything on; if
+  // it's no longer paired to anything (access was revoked), clear the
+  // dead session so the normal sign-in form shows instead.
+  if (session.user.is_anonymous) {
+    const { data: driver } = await supabaseClient
+      .from('drivers')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+
+    if (driver) {
+      window.location.href = `accident.html?driver=${encodeURIComponent(driver.id)}`;
+    } else {
+      await supabaseClient.auth.signOut();
+    }
+    return;
+  }
+
+  window.location.href = destinationAfterLogin();
 }
 redirectIfLoggedIn();
 

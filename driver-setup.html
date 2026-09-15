@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Set up this phone — ReadyID</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Ready<span>ID</span></div>
+</div>
+
+<div class="wrap" style="max-width:420px;">
+  <div style="text-align:center; margin-bottom:28px;">
+    <h1 style="font-size:1.5rem;">Set up this phone</h1>
+  </div>
+
+  <div class="card" id="confirmCard" style="display:none;">
+    <p style="margin:0 0 16px;">This will set this phone up for ReadyID's Accident Assist. If you're currently signed in to a ReadyID account on this device, that will be replaced.</p>
+    <div id="errorBox" class="error-msg" style="display:none;"></div>
+    <button class="btn btn-primary btn-full" id="continueBtn">Continue</button>
+  </div>
+
+  <div class="card" id="workingCard">
+    <p style="margin:0; color:var(--text-muted);">Checking your link...</p>
+  </div>
+
+  <div class="card" id="invalidCard" style="display:none;">
+    <p style="margin:0;">This link isn't valid anymore. Ask whoever shared it with you to send a new one.</p>
+  </div>
+
+  <div class="card" id="doneCard" style="display:none;">
+    <p style="margin:0 0 12px;" id="doneMessage">This phone is set up.</p>
+    <a class="btn btn-primary btn-full" href="accident.html" id="continueLink">Continue</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/driver-setup.js"></script>
+</body>
+</html>
