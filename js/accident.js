@@ -23,6 +23,7 @@ async function init() {
 
   const params = new URLSearchParams(window.location.search);
   driverId = params.get('driver');
+  const startView = params.get('view');
 
   if (!driverId) {
     content.innerHTML = `
@@ -49,7 +50,15 @@ async function init() {
   }
 
   driverName = driver.full_name;
-  renderHome();
+
+  // Reached via the "Accident History" link on drivers.html
+  // (accident.html?driver=X&view=history) — jump straight to the list
+  // instead of the "I've Been in an Accident" screen.
+  if (startView === 'history') {
+    goTo('history', { replace: true });
+  } else {
+    renderHome();
+  }
 }
 
 document.getElementById('signOutBtn').addEventListener('click', async () => {
@@ -106,19 +115,86 @@ function renderHome() {
     </div>
     <button class="btn btn-alert btn-full btn-lg" id="startBtn">I've Been in an Accident</button>
     <p class="hint" style="text-align:center; margin-top:14px;">If you're in danger right now, call 911 before anything else.</p>
-    <p style="text-align:center; margin-top:20px;"><a href="dashboard.html">← Back to dashboard</a></p>
+    <p style="text-align:center; margin-top:20px;"><a href="#" id="historyLink">View past accidents for ${escapeHtml(driverName)}</a></p>
+    <p style="text-align:center; margin-top:8px;"><a href="dashboard.html">← Back to dashboard</a></p>
   `;
   document.getElementById('startBtn').addEventListener('click', startAccident);
+  document.getElementById('historyLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    goTo('history');
+  });
 }
 
 function startAccident() {
   // Get guidance on screen immediately. Never make someone wait on a
   // network call to access the safety questions — save what we can
   // in the background instead, and don't let a failed save interrupt them.
+  // Reset first — accidentSessionId can be left pointing at a past
+  // session after visiting it from the history list, and a brand-new
+  // accident must never attach its data to an old one.
+  accidentSessionId = null;
   history.length = 0;
   goTo('safe_check');
   createAccidentSessionInBackground();
 }
+
+SCREENS.history = async function () {
+  content.innerHTML = `<div class="card"><p class="hint">Loading...</p></div>`;
+
+  const { data: sessions, error } = await supabaseClient
+    .from('accident_sessions')
+    .select('id, status, started_at')
+    .eq('driver_id', driverId)
+    .order('started_at', { ascending: false });
+
+  const header = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backBtn">← Back</button>
+      <h1 style="font-size:1.3rem;">Past accidents</h1>
+    </div>`;
+
+  if (error) {
+    content.innerHTML = `${header}<div class="error-msg" style="display:block;">${escapeHtml(error.message)}</div>`;
+    document.getElementById('backBtn').addEventListener('click', () => goTo('home', { replace: true }));
+    return;
+  }
+
+  if (!sessions.length) {
+    content.innerHTML = `${header}<div class="card"><div class="empty-state">No past accidents on file for ${escapeHtml(driverName)}.</div></div>`;
+    document.getElementById('backBtn').addEventListener('click', () => goTo('home', { replace: true }));
+    return;
+  }
+
+  content.innerHTML = `
+    ${header}
+    <div class="card">
+      <div class="choice-list">
+        ${sessions
+          .map((s) =>
+            choiceBtn(
+              new Date(s.started_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+              s.status === 'completed' ? 'Triage completed' : 'Triage in progress',
+              `openPastSession_${s.id}`
+            )
+          )
+          .join('')}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('backBtn').addEventListener('click', () => goTo('home', { replace: true }));
+
+  // Registered per-session since the action name has to be unique per
+  // button — same dynamic-window-function pattern as the photo category
+  // buttons below.
+  sessions.forEach((s) => {
+    window[`openPastSession_${s.id}`] = () => {
+      accidentSessionId = s.id;
+      history.length = 0;
+      goTo('next_steps');
+    };
+  });
+};
 
 async function createAccidentSessionInBackground(attempt = 1) {
   try {

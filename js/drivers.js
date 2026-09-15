@@ -118,6 +118,11 @@ async function loadDrivers() {
             href="accident.html?driver=${d.id}"
           >Accident Assist</a>
 
+          <a
+            class="btn btn-outline"
+            href="accident.html?driver=${d.id}&view=history"
+          >Accident History</a>
+
           ${activeLink
             ? `<a
                 class="btn btn-outline"
