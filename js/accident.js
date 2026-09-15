@@ -513,10 +513,13 @@ SCREENS.photos = async function () {
                           ? `<video src="${url}" style="width:100%; height:100%; object-fit:cover;" muted></video>`
                           : `<img src="${url}" style="width:100%; height:100%; object-fit:cover;" alt="">`;
                       return `
-                        <div style="position:relative; width:84px; height:84px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#000;">
+                        <div
+                          data-photo-id="${p.id}"
+                          style="position:relative; width:84px; height:84px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:#000; ${url ? 'cursor:pointer;' : ''}"
+                        >
                           ${media}
                           <button
-                            onclick="deletePhoto('${p.id}', '${safePath}')"
+                            onclick="event.stopPropagation(); deletePhoto('${p.id}', '${safePath}')"
                             style="position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; background:var(--alert); color:#fff; border:none; font-size:0.8rem; line-height:1; cursor:pointer; padding:0;"
                           >✕</button>
                         </div>`;
@@ -535,6 +538,21 @@ SCREENS.photos = async function () {
   document.getElementById('backBtn').addEventListener('click', () =>
     goTo('next_steps', { replace: true })
   );
+
+  // Tapping a thumbnail (not the delete button — that stops propagation)
+  // opens it full-size with a download option. Bound here rather than via
+  // an inline onclick so the signed URL, which can contain characters
+  // that would break an HTML attribute, never has to be serialized into
+  // the markup string.
+  content.querySelectorAll('[data-photo-id]').forEach((el) => {
+    const photo = (photos || []).find((p) => p.id === el.dataset.photoId);
+    if (!photo) return;
+    const url = signedUrls[photo.storage_path];
+    if (!url) return;
+    el.addEventListener('click', () => {
+      openPhotoLightbox(url, photo.category === 'video', photo.storage_path.split('/').pop());
+    });
+  });
 
   const photoInput = document.getElementById('photoInput');
   let pendingCategory = null;
@@ -591,6 +609,70 @@ window.deletePhoto = async (id, storagePath) => {
   await supabaseClient.storage.from('accident-photos').remove([storagePath]);
   await supabaseClient.from('accident_photos').delete().eq('id', id);
   goTo('photos', { replace: true });
+};
+
+// Full-size viewer for a single photo/video, with a real download button.
+// Signed URLs are cross-origin, so a plain <a download> is ignored by the
+// browser — fetching the bytes and downloading from a same-origin blob URL
+// is what actually saves the file instead of just opening it in a tab.
+function closePhotoLightbox() {
+  const el = document.getElementById('photoLightbox');
+  if (el) el.remove();
+  document.removeEventListener('keydown', lightboxKeyHandler);
+}
+
+function lightboxKeyHandler(e) {
+  if (e.key === 'Escape') closePhotoLightbox();
+}
+
+window.openPhotoLightbox = (url, isVideo, filename) => {
+  const overlay = document.createElement('div');
+  overlay.id = 'photoLightbox';
+  overlay.style.cssText =
+    'position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px;';
+  overlay.innerHTML = `
+    <div style="position:absolute; top:16px; right:16px; display:flex; gap:10px;">
+      <button id="lbDownloadBtn" class="btn btn-outline" style="background:#fff;">Download</button>
+      <button id="lbCloseBtn" class="btn btn-outline" style="background:#fff;">✕ Close</button>
+    </div>
+    ${
+      isVideo
+        ? `<video src="${url}" controls style="max-width:100%; max-height:85vh; border-radius:8px;"></video>`
+        : `<img src="${url}" style="max-width:100%; max-height:85vh; border-radius:8px; object-fit:contain;" alt="">`
+    }
+  `;
+  document.body.appendChild(overlay);
+
+  // Clicking the dark backdrop (not the media itself) closes it too.
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closePhotoLightbox();
+  });
+  document.getElementById('lbCloseBtn').addEventListener('click', closePhotoLightbox);
+  document.getElementById('lbDownloadBtn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const originalLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Downloading...';
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename || 'photo';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      alert("Couldn't download this file: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  });
+
+  document.addEventListener('keydown', lightboxKeyHandler);
 };
 
 SCREENS.other_drivers = async function () {
