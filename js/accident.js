@@ -215,9 +215,503 @@ SCREENS.triage_done = function () {
     <div class="card">
       <h2>Nice work — you're through the first part.</h2>
       <div class="callout safe">✓&nbsp; This accident has been saved to your account.</div>
-      <p class="hint">The next parts of the flow — scene guidance, photos, other driver info — aren't wired up yet. This is as far as this build goes for now.</p>
-      <a class="btn btn-outline btn-full" href="dashboard.html">Back to dashboard</a>
+      <p class="hint">Next, there are a few more things you can take care of when you're ready — photos, the other driver's info, witnesses, and the police report. None of it's required right now.</p>
+      <button class="btn btn-primary btn-full" id="continueBtn">Continue</button>
     </div>`;
+  document.getElementById('continueBtn').addEventListener('click', () => {
+    // Fire-and-forget, same as the session save itself — marking triage
+    // done shouldn't make anyone wait on a network round trip.
+    if (accidentSessionId) {
+      supabaseClient
+        .from('accident_sessions')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', accidentSessionId)
+        .then(() => {});
+    }
+    goTo('next_steps');
+  });
+};
+
+// Waits (briefly) for the background session save from startAccident() to
+// finish, so the "next steps" screens always have a session_id to attach
+// their data to — even if the save is still retrying when someone gets
+// here fast.
+async function ensureAccidentSession() {
+  if (accidentSessionId) return accidentSessionId;
+  for (let i = 0; i < 10 && !accidentSessionId; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return accidentSessionId;
+}
+
+function showSessionUnavailable() {
+  content.innerHTML = `
+    <div class="card">
+      <p>Still saving your session — check your connection and try again.</p>
+      <button class="btn btn-outline btn-full" id="retryBtn">Try again</button>
+    </div>`;
+  document.getElementById('retryBtn').addEventListener('click', () => render());
+}
+
+SCREENS.next_steps = async function () {
+  content.innerHTML = `<div class="card"><p class="hint">Loading...</p></div>`;
+
+  const sid = await ensureAccidentSession();
+  if (!sid) {
+    showSessionUnavailable();
+    return;
+  }
+
+  const [
+    { data: session },
+    { count: photoCount },
+    { count: otherDriverCount },
+    { count: witnessCount },
+    { data: policeInfo },
+  ] = await Promise.all([
+    supabaseClient
+      .from('accident_sessions')
+      .select('medical_checked, knows_how_to_get_report, insurer_contact_planned')
+      .eq('id', sid)
+      .single(),
+    supabaseClient
+      .from('accident_photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_id', sid),
+    supabaseClient
+      .from('accident_other_drivers')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_id', sid),
+    supabaseClient
+      .from('accident_witnesses')
+      .select('*', { count: 'exact', head: true })
+      .eq('session_id', sid),
+    supabaseClient
+      .from('accident_police_info')
+      .select('officer_name_badge, agency, case_number')
+      .eq('session_id', sid)
+      .maybeSingle(),
+  ]);
+
+  const s = session || {};
+  const policeFilled = !!(
+    policeInfo &&
+    (policeInfo.officer_name_badge || policeInfo.agency || policeInfo.case_number)
+  );
+
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <h1 style="font-size:1.3rem;">What's next</h1>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Before you go</div>
+      <label style="display:flex; align-items:center; gap:10px; margin-bottom:12px; cursor:pointer;">
+        <input type="checkbox" id="chkMedical" ${s.medical_checked ? 'checked' : ''}>
+        <span>Everyone's been medically checked out</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:10px; margin-bottom:12px; cursor:pointer;">
+        <input type="checkbox" id="chkReport" ${s.knows_how_to_get_report ? 'checked' : ''}>
+        <span>I know how to get a copy of the police report</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+        <input type="checkbox" id="chkInsurer" ${s.insurer_contact_planned ? 'checked' : ''}>
+        <span>I have a plan to contact my insurer</span>
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Document the scene</div>
+      <p class="hint" style="margin-bottom:14px;">Tackle these in any order, or come back later — they're all saved as you go.</p>
+      <div class="choice-list">
+        ${choiceBtn(
+          'Photos',
+          photoCount ? `${photoCount} photo${photoCount === 1 ? '' : 's'} added` : 'None added yet',
+          'goToPhotos'
+        )}
+        ${choiceBtn(
+          "Other driver's info",
+          otherDriverCount ? `${otherDriverCount} added` : 'None added yet',
+          'goToOtherDrivers'
+        )}
+        ${choiceBtn(
+          'Witnesses',
+          witnessCount ? `${witnessCount} added` : 'None added yet',
+          'goToWitnesses'
+        )}
+        ${choiceBtn('Police info', policeFilled ? 'Added' : 'Not added yet', 'goToPoliceInfo')}
+      </div>
+    </div>
+
+    <a class="btn btn-outline btn-full" href="dashboard.html">Back to dashboard</a>
+  `;
+
+  document.getElementById('chkMedical').addEventListener('change', (e) =>
+    updateSessionFlag('medical_checked', e.target.checked)
+  );
+  document.getElementById('chkReport').addEventListener('change', (e) =>
+    updateSessionFlag('knows_how_to_get_report', e.target.checked)
+  );
+  document.getElementById('chkInsurer').addEventListener('change', (e) =>
+    updateSessionFlag('insurer_contact_planned', e.target.checked)
+  );
+};
+window.goToPhotos = () => goTo('photos');
+window.goToOtherDrivers = () => goTo('other_drivers');
+window.goToWitnesses = () => goTo('witnesses');
+window.goToPoliceInfo = () => goTo('police_info');
+
+async function updateSessionFlag(field, value) {
+  if (!accidentSessionId) return;
+  await supabaseClient.from('accident_sessions').update({ [field]: value }).eq('id', accidentSessionId);
+}
+
+const PHOTO_CATEGORIES = [
+  { key: 'wide', label: 'Wide shot of the scene' },
+  { key: 'damage', label: 'Damage close-ups' },
+  { key: 'plates', label: 'License plates' },
+  { key: 'signs', label: 'Street signs / signals' },
+  { key: 'skid', label: 'Skid marks' },
+  { key: 'conditions', label: 'Road / weather conditions' },
+  { key: 'vin', label: 'VIN' },
+  { key: 'injuries', label: 'Injuries (if any)' },
+  { key: 'video', label: 'Video' },
+];
+
+SCREENS.photos = async function () {
+  content.innerHTML = `<div class="card"><p class="hint">Loading...</p></div>`;
+
+  const sid = await ensureAccidentSession();
+  if (!sid) {
+    showSessionUnavailable();
+    return;
+  }
+
+  const { data: photos, error } = await supabaseClient
+    .from('accident_photos')
+    .select('id, category')
+    .eq('session_id', sid);
+
+  const counts = {};
+  (photos || []).forEach((p) => {
+    counts[p.category] = (counts[p.category] || 0) + 1;
+  });
+
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backBtn">← Back</button>
+      <h1 style="font-size:1.3rem;">Photos</h1>
+    </div>
+    <div id="photoError" class="error-msg" style="display:none;"></div>
+    <div class="card">
+      <p class="hint" style="margin-bottom:14px;">Tap a category to add a photo or video. You can add more than one per category.</p>
+      <div class="choice-list">
+        ${PHOTO_CATEGORIES.map((c) =>
+          choiceBtn(
+            c.label,
+            counts[c.key] ? `${counts[c.key]} added` : 'None yet',
+            `takePhoto_${c.key}`
+          )
+        ).join('')}
+      </div>
+    </div>
+    <input type="file" accept="image/*,video/*" id="photoInput" style="display:none;">
+  `;
+
+  document.getElementById('backBtn').addEventListener('click', () =>
+    goTo('next_steps', { replace: true })
+  );
+
+  const photoInput = document.getElementById('photoInput');
+  let pendingCategory = null;
+
+  PHOTO_CATEGORIES.forEach((c) => {
+    window[`takePhoto_${c.key}`] = () => {
+      pendingCategory = c.key;
+      photoInput.click();
+    };
+  });
+
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    photoInput.value = '';
+    if (!file || !pendingCategory) return;
+
+    const errBox = document.getElementById('photoError');
+    errBox.style.display = 'none';
+
+    // First path segment must be the owner's own auth uid — required by
+    // the storage RLS policies on the accident-photos bucket.
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${currentUser.id}/${sid}/${pendingCategory}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabaseClient.storage
+      .from('accident-photos')
+      .upload(path, file);
+
+    if (uploadError) {
+      errBox.textContent = uploadError.message;
+      errBox.style.display = 'block';
+      return;
+    }
+
+    const { error: insertError } = await supabaseClient
+      .from('accident_photos')
+      .insert({ session_id: sid, category: pendingCategory, storage_path: path });
+
+    if (insertError) {
+      errBox.textContent = insertError.message;
+      errBox.style.display = 'block';
+      return;
+    }
+
+    goTo('photos', { replace: true });
+  });
+};
+
+SCREENS.other_drivers = async function () {
+  content.innerHTML = `<div class="card"><p class="hint">Loading...</p></div>`;
+
+  const sid = await ensureAccidentSession();
+  if (!sid) {
+    showSessionUnavailable();
+    return;
+  }
+
+  const { data: rows } = await supabaseClient
+    .from('accident_other_drivers')
+    .select('*')
+    .eq('session_id', sid)
+    .order('created_at', { ascending: true });
+
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backBtn">← Back</button>
+      <h1 style="font-size:1.3rem;">Other driver's info</h1>
+    </div>
+    <div id="odError" class="error-msg" style="display:none;"></div>
+
+    ${(rows || [])
+      .map(
+        (r) => `
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+          <div style="min-width:0;">
+            <div class="driver-name">${escapeHtml(r.name || 'Unnamed driver')}</div>
+            ${r.phone ? `<div class="hint">${escapeHtml(r.phone)}</div>` : ''}
+            ${
+              r.insurer || r.policy_number
+                ? `<div class="hint">${escapeHtml(r.insurer || '')}${r.insurer && r.policy_number ? ' — ' : ''}${escapeHtml(r.policy_number || '')}</div>`
+                : ''
+            }
+          </div>
+          <button class="btn btn-outline btn-delete" onclick="deleteOtherDriver('${r.id}')">Delete</button>
+        </div>
+      </div>`
+      )
+      .join('')}
+
+    <div class="card">
+      <div class="section-title">Add a driver</div>
+      <div class="field"><label>Name</label><input id="od_name"></div>
+      <div class="field-row">
+        <div class="field"><label>Phone</label><input id="od_phone"></div>
+        <div class="field"><label>Address</label><input id="od_address"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>License number</label><input id="od_license_number"></div>
+        <div class="field"><label>License state</label><input id="od_license_state"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Insurer</label><input id="od_insurer"></div>
+        <div class="field"><label>Policy number</label><input id="od_policy_number"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Plate number</label><input id="od_plate_number"></div>
+        <div class="field"><label>Plate state</label><input id="od_plate_state"></div>
+      </div>
+      <div class="field"><label>VIN</label><input id="od_vin"></div>
+      <div class="field"><label>Vehicle description</label><input id="od_vehicle_description" placeholder="e.g. Silver Honda Civic"></div>
+      <button class="btn btn-primary btn-full" id="saveOdBtn">Add driver</button>
+    </div>
+  `;
+
+  document.getElementById('backBtn').addEventListener('click', () =>
+    goTo('next_steps', { replace: true })
+  );
+
+  document.getElementById('saveOdBtn').addEventListener('click', async () => {
+    const errBox = document.getElementById('odError');
+    errBox.style.display = 'none';
+
+    const payload = {
+      session_id: sid,
+      name: document.getElementById('od_name').value.trim() || null,
+      phone: document.getElementById('od_phone').value.trim() || null,
+      address: document.getElementById('od_address').value.trim() || null,
+      license_number: document.getElementById('od_license_number').value.trim() || null,
+      license_state: document.getElementById('od_license_state').value.trim() || null,
+      insurer: document.getElementById('od_insurer').value.trim() || null,
+      policy_number: document.getElementById('od_policy_number').value.trim() || null,
+      plate_number: document.getElementById('od_plate_number').value.trim() || null,
+      plate_state: document.getElementById('od_plate_state').value.trim() || null,
+      vin: document.getElementById('od_vin').value.trim() || null,
+      vehicle_description: document.getElementById('od_vehicle_description').value.trim() || null,
+    };
+
+    const { error } = await supabaseClient.from('accident_other_drivers').insert(payload);
+    if (error) {
+      errBox.textContent = error.message;
+      errBox.style.display = 'block';
+      return;
+    }
+
+    goTo('other_drivers', { replace: true });
+  });
+};
+
+window.deleteOtherDriver = async (id) => {
+  if (!confirm("Remove this driver's info?")) return;
+  await supabaseClient.from('accident_other_drivers').delete().eq('id', id);
+  goTo('other_drivers', { replace: true });
+};
+
+SCREENS.witnesses = async function () {
+  content.innerHTML = `<div class="card"><p class="hint">Loading...</p></div>`;
+
+  const sid = await ensureAccidentSession();
+  if (!sid) {
+    showSessionUnavailable();
+    return;
+  }
+
+  const { data: rows } = await supabaseClient
+    .from('accident_witnesses')
+    .select('*')
+    .eq('session_id', sid)
+    .order('created_at', { ascending: true });
+
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backBtn">← Back</button>
+      <h1 style="font-size:1.3rem;">Witnesses</h1>
+    </div>
+    <div id="wError" class="error-msg" style="display:none;"></div>
+
+    ${(rows || [])
+      .map(
+        (r) => `
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+          <div style="min-width:0;">
+            <div class="driver-name">${escapeHtml(r.name || 'Unnamed witness')}</div>
+            ${r.phone ? `<div class="hint">${escapeHtml(r.phone)}</div>` : ''}
+            ${r.what_they_saw ? `<div class="hint" style="margin-top:4px;">${escapeHtml(r.what_they_saw)}</div>` : ''}
+          </div>
+          <button class="btn btn-outline btn-delete" onclick="deleteWitness('${r.id}')">Delete</button>
+        </div>
+      </div>`
+      )
+      .join('')}
+
+    <div class="card">
+      <div class="section-title">Add a witness</div>
+      <div class="field"><label>Name</label><input id="w_name"></div>
+      <div class="field"><label>Phone</label><input id="w_phone"></div>
+      <div class="field"><label>What they saw</label><textarea id="w_what_they_saw" rows="3"></textarea></div>
+      <button class="btn btn-primary btn-full" id="saveWBtn">Add witness</button>
+    </div>
+  `;
+
+  document.getElementById('backBtn').addEventListener('click', () =>
+    goTo('next_steps', { replace: true })
+  );
+
+  document.getElementById('saveWBtn').addEventListener('click', async () => {
+    const errBox = document.getElementById('wError');
+    errBox.style.display = 'none';
+
+    const payload = {
+      session_id: sid,
+      name: document.getElementById('w_name').value.trim() || null,
+      phone: document.getElementById('w_phone').value.trim() || null,
+      what_they_saw: document.getElementById('w_what_they_saw').value.trim() || null,
+    };
+
+    const { error } = await supabaseClient.from('accident_witnesses').insert(payload);
+    if (error) {
+      errBox.textContent = error.message;
+      errBox.style.display = 'block';
+      return;
+    }
+
+    goTo('witnesses', { replace: true });
+  });
+};
+
+window.deleteWitness = async (id) => {
+  if (!confirm('Remove this witness?')) return;
+  await supabaseClient.from('accident_witnesses').delete().eq('id', id);
+  goTo('witnesses', { replace: true });
+};
+
+SCREENS.police_info = async function () {
+  content.innerHTML = `<div class="card"><p class="hint">Loading...</p></div>`;
+
+  const sid = await ensureAccidentSession();
+  if (!sid) {
+    showSessionUnavailable();
+    return;
+  }
+
+  const { data: info } = await supabaseClient
+    .from('accident_police_info')
+    .select('*')
+    .eq('session_id', sid)
+    .maybeSingle();
+
+  content.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+      <button class="btn btn-outline" id="backBtn">← Back</button>
+      <h1 style="font-size:1.3rem;">Police info</h1>
+    </div>
+    <div id="piError" class="error-msg" style="display:none;"></div>
+
+    <div class="card">
+      <div class="field"><label>Officer name / badge number</label><input id="pi_officer" value="${escapeHtml(info?.officer_name_badge || '')}"></div>
+      <div class="field"><label>Agency</label><input id="pi_agency" value="${escapeHtml(info?.agency || '')}"></div>
+      <div class="field"><label>Case / report number</label><input id="pi_case" value="${escapeHtml(info?.case_number || '')}"></div>
+      <button class="btn btn-primary btn-full" id="savePiBtn">Save</button>
+    </div>
+  `;
+
+  document.getElementById('backBtn').addEventListener('click', () =>
+    goTo('next_steps', { replace: true })
+  );
+
+  document.getElementById('savePiBtn').addEventListener('click', async () => {
+    const errBox = document.getElementById('piError');
+    errBox.style.display = 'none';
+
+    const payload = {
+      session_id: sid,
+      officer_name_badge: document.getElementById('pi_officer').value.trim() || null,
+      agency: document.getElementById('pi_agency').value.trim() || null,
+      case_number: document.getElementById('pi_case').value.trim() || null,
+    };
+
+    const { error } = await supabaseClient
+      .from('accident_police_info')
+      .upsert(payload, { onConflict: 'session_id' });
+
+    if (error) {
+      errBox.textContent = error.message;
+      errBox.style.display = 'block';
+      return;
+    }
+
+    goTo('next_steps', { replace: true });
+  });
 };
 
 // Registered so the initial render() call below (current === 'home') has
